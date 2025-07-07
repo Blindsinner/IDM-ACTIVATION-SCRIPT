@@ -1,4 +1,4 @@
-@set iasver=2.7
+@set iasver=2.8
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -764,7 +764,7 @@ goto :eof
 cls
 echo:
 echo Applying firewall rules to block IDM activation/update servers...
-%psc% -NoProfile -ExecutionPolicy Bypass -Command "$ipsToBlock = '34.107.221.82,198.51.100.5,169.61.27.133'; $idmPath = '!IDMan!'; $ruleName = 'IDM Block (IAS)'; netsh.exe advfirewall firewall delete rule name=\`"$ruleName\`" > $null; & netsh.exe advfirewall firewall add rule name=\`"$ruleName\`" dir=out action=block enable=yes program=\`"$idmPath\`" remoteip=\`"$ipsToBlock\`"; if ($LASTEXITCODE -eq 0) { Write-Host \`"Firewall rules applied to block known IDM servers.\`" -ForegroundColor Green } else { Write-Host \`"Failed to apply firewall rules.\`" -ForegroundColor Red }; ipconfig /flushdns;"
+%psc% -NoProfile -ExecutionPolicy Bypass -Command "$ipsToBlock = '34.107.221.82,198.51.100.5,169.61.27.133'; $idmPath = '!IDMan!'; $ruleName = 'IDM Block (IAS)'; Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -Program $idmPath -Action Block -RemoteAddress $ipsToBlock; if ($?) { Write-Host 'Firewall rules applied to block known IDM servers.' -ForegroundColor Green } else { Write-Host 'Failed to apply firewall rules.' -ForegroundColor Red }; ipconfig /flushdns;"
 goto :done
 
 :unblock_updates
@@ -775,12 +775,8 @@ call :remove_firewall_rules
 goto :done
 
 :remove_firewall_rules
-netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
-if !errorlevel!==0 (
-    echo Removed firewall block rules.
-) else (
-    echo No active firewall block rules found.
-)
+%psc% -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'IDM Block (IAS)' -ErrorAction SilentlyContinue;"
+echo Removed firewall block rules.
 goto :eof
 
 :repair_idm_integration
