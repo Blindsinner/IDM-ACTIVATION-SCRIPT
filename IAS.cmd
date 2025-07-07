@@ -1,4 +1,4 @@
-@set iasver=3.1
+@set iasver=3.2
 @setlocal DisableDelayedExpansion
 @echo off
 
