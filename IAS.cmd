@@ -1,4 +1,4 @@
-@set iasver=2.2
+@set iasver=2.3
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -426,7 +426,6 @@ if not defined terminal %psc% "&%_buf%" %nul%
 echo:
 %idmcheck% && taskkill /f /im idman.exe
 
-call :remove_hosts_block_verbose
 call :remove_firewall_rules
 
 set _time=
@@ -538,7 +537,7 @@ goto done
 
 :: Internet check with internetdownloadmanager.com ping and port 80 test
 
-call :remove_hosts_block_silent
+call :remove_firewall_rules
 set _int=
 for /f "delims=[] tokens=2" %%# in ('ping -n 1 internetdownloadmanager.com') do (if not [%%#]==[] set _int=1)
 
@@ -758,68 +757,68 @@ call :_color2 %Red% "Failed - !reg!"
 goto :eof
 
 ::========================================================================================================================================
-:: Hosts File and Repair Section
+:: Firewall and Repair Section
 ::========================================================================================================================================
 
 :block_updates
 cls
 echo:
-echo Applying hosts file block for IDM activation/update servers...
-call :remove_hosts_block_silent
-set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
-set "marker=# IDM Block by IAS"
-set "backup_file=%hosts_file%.ias.bak"
-
-if not exist "%backup_file%" copy "%hosts_file%" "%backup_file%" >nul
-
-echo Adding new hosts file block entries...
->>"%hosts_file%" echo.
->>"%hosts_file%" echo %marker%
->>"%hosts_file%" echo 127.0.0.1 internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 www.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 register.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 register2.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 register3.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 mirror.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 mirror2.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 mirror3.internetdownloadmanager.com
-echo.
-echo Hosts file updated effectively.
+echo Applying firewall rules to block IDM activation/update servers...
+%psc% -NoProfile -ExecutionPolicy Bypass -Command "& {
+    $domainsToBlock = @(
+        'internetdownloadmanager.com',
+        'www.internetdownloadmanager.com',
+        'register.internetdownloadmanager.com',
+        'register2.internetdownloadmanager.com',
+        'register3.internetdownloadmanager.com',
+        'mirror.internetdownloadmanager.com',
+        'mirror2.internetdownloadmanager.com',
+        'mirror3.internetdownloadmanager.com'
+    )
+    $ipList = [System.Collections.Generic.List[string]]::new()
+    foreach ($domain in $domainsToBlock) {
+        try {
+            $ips = [System.Net.Dns]::GetHostAddresses($domain) | ForEach-Object { $_.IPAddressToString }
+            if ($ips) {
+                $ipList.AddRange($ips)
+            }
+        } catch {
+            Write-Warning ""Failed to resolve domain: $domain""
+        }
+    }
+    $uniqueIps = $ipList | Select-Object -Unique
+    if ($uniqueIps.Count -gt 0) {
+        $remoteIps = $uniqueIps -join ','
+        $idmPath = '!IDMan!'
+        $ruleName = 'IDM Block (IAS)'
+        netsh advfirewall firewall delete rule name=""$ruleName"" > $null
+        $command = ""advfirewall firewall add rule name=`""$ruleName`" dir=out action=block enable=yes program=`""$idmPath`"" remoteip=$remoteIps""
+        netsh @($command.Split(' '))
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ""Firewall rules applied to block $($uniqueIps.Count) IP addresses."" -ForegroundColor Green
+        } else {
+            Write-Host ""Failed to apply firewall rules."" -ForegroundColor Red
+        }
+    } else {
+        Write-Host ""Could not resolve any IDM domains to apply firewall rules."" -ForegroundColor Yellow
+    }
+    ipconfig /flushdns
+}"
 goto :done
 
 :unblock_updates
 cls
 echo:
-echo Removing hosts file block...
-call :remove_hosts_block_silent
-echo Removed hosts file block entries.
+echo Removing firewall rules...
+call :remove_firewall_rules
 goto :done
 
-:remove_hosts_block_verbose
-echo:
-echo Removing hosts file block...
-call :remove_hosts_block_silent
-echo Removed hosts file block entries.
-goto :eof
-
-:remove_hosts_block_silent
-set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
-set "marker=# IDM Block by IAS"
-if not exist "%hosts_file%" goto :eof
-
-findstr /v /i /c:"%marker%" "%hosts_file%" | findstr /v /i /c:"internetdownloadmanager.com" > "%hosts_file%.tmp"
-move /y "%hosts_file%.tmp" "%hosts_file%" >nul
-goto :eof
-
-
 :remove_firewall_rules
-echo:
-echo Removing firewall rules (legacy cleanup)...
 netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
 if !errorlevel!==0 (
-    echo Removed legacy firewall block rules.
+    echo Removed firewall block rules.
 ) else (
-    echo No active legacy firewall block rules found.
+    echo No active firewall block rules found.
 )
 goto :eof
 
@@ -877,7 +876,7 @@ foreach ($regPath in $regPaths) {
 	Write-Host "Searching IDM CLSID Registry Keys in $regPath"
 	Write-Host
 	
-    $subKeys = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -ErrorVariable lockedKeys | Where-Object { $_.PSChildName -match '^\{[A-F0.9]{8}-[A-F0.9]{4}-[A-F0.9]{4}-[A-F0.9]{4}-[A-F0.9]{12}\}$' }
+    $subKeys = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -ErrorVariable lockedKeys | Where-Object { $_.PSChildName -match '^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$' }
 
     foreach ($lockedKey in $lockedKeys) {
         $leafValue = Split-Path -Path $lockedKey.TargetObject -Leaf
@@ -1062,4 +1061,4 @@ goto :eof
 
 ::========================================================================================================================================
 :: Leave empty line" in the Canvas.
-I have made some changes, please f
+I have made some changes, pleas
