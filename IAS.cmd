@@ -1,4 +1,4 @@
-@set iasver=1.2
+@set iasver=1.3
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -25,6 +25,9 @@ set _freeze=0
 
 ::  To reset the activation and trial, run the script with "/res" parameter or change 0 to 1 in below line
 set _reset=0
+
+::  To automatically block IDM with firewall on activation, run with "/block" or change 0 to 1
+set _block=0
 
 ::  If value is changed in above lines or parameter is used then script will run in unattended mode
 
@@ -107,14 +110,15 @@ set _args=%*
 if defined _args set _args=%_args:"=%
 if defined _args (
 for %%A in (%_args%) do (
-if /i "%%A"=="-el"  set _elev=1
-if /i "%%A"=="/res" set _reset=1
-if /i "%%A"=="/frz" set _freeze=1
-if /i "%%A"=="/act" set _activate=1
+if /i "%%A"=="-el"   set _elev=1
+if /i "%%A"=="/res"  set _reset=1
+if /i "%%A"=="/frz"  set _freeze=1
+if /i "%%A"=="/act"  set _activate=1
+if /i "%%A"=="/block" set _block=1
 )
 )
 
-for %%A in (%_activate% %_freeze% %_reset%) do (if "%%A"=="1" set _unattended=1)
+for %%A in (%_activate% %_freeze% %_reset% %_block%) do (if "%%A"=="1" set _unattended=1)
 
 ::========================================================================================================================================
 
@@ -381,7 +385,9 @@ echo:               [1] Activate
 echo:               [2] Freeze Trial
 echo:               [3] Reset Activation / Trial
 echo:               _____________________________________________   
-echo:                                                               
+echo:
+call :_color %Gray% "    Activation and Freeze options include Firewall blocking."
+echo:
 echo:               [4] Download IDM
 echo:               [5] Help
 echo:               [0] Exit
@@ -413,6 +419,8 @@ if not defined terminal %psc% "&%_buf%" %nul%
 
 echo:
 %idmcheck% && taskkill /f /im idman.exe
+
+call :remove_firewall_rules
 
 set _time=
 for /f %%a in ('%psc% "(Get-Date).ToString('yyyyMMdd-HHmmssfff')"') do set _time=%%a
@@ -571,6 +579,17 @@ goto :done
 
 %psc% "$sid = '%_sid%'; $HKCUsync = %HKCUsync%; $lockKey = 1; $deleteKey = $null; $f=[io.file]::ReadAllText('!_batp!') -split ':regscan\:.*';iex ($f[1])"
 
+set _block_choice=N
+if %_unattended%==1 (
+    if %_block%==1 set _block_choice=Y
+) else (
+    echo:
+    choice /C:YN /N /M "> Block IDM with Firewall? (Recommended) [Y/N]: "
+    if !errorlevel!==1 set _block_choice=Y
+)
+
+if "%_block_choice%"=="Y" call :apply_firewall_rules
+
 echo:
 echo %line%
 echo:
@@ -704,6 +723,33 @@ echo Added - !reg!
 ) else (
 set "reg=%reg:"=%"
 call :_color2 %Red% "Failed - !reg!"
+)
+exit /b
+
+::========================================================================================================================================
+:: Firewall Section
+::========================================================================================================================================
+
+:apply_firewall_rules
+echo:
+echo Applying firewall rules to block IDM...
+netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
+netsh advfirewall firewall add rule name="IDM Block (IAS)" dir=out action=block program="!IDMan!" >nul 2>&1
+if !errorlevel!==0 (
+    echo Blocked Outbound - !IDMan!
+) else (
+    call :_color2 %Red% "Failed to block - !IDMan!"
+)
+exit /b
+
+:remove_firewall_rules
+echo:
+echo Removing firewall rules...
+netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
+if !errorlevel!==0 (
+    echo Removed firewall block rules.
+) else (
+    echo No active firewall block rules found.
 )
 exit /b
 
@@ -913,3 +959,4 @@ exit /b
 
 ::========================================================================================================================================
 :: Leave empty line below
+
