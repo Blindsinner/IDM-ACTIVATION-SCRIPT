@@ -1,4 +1,4 @@
-@set iasver=3.0
+@set iasver=2.1
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -390,8 +390,8 @@ echo:
 echo:               [1] Activate
 echo:               [2] Freeze Trial
 echo:               [3] Reset Activation / Trial
-echo:               [4] Block IDM Updates (Firewall)
-echo:               [5] Unblock IDM Updates (Firewall)
+echo:               [4] Block IDM Updates
+echo:               [5] Unblock IDM Updates
 echo:               [6] Download IDM
 echo:               [7] Help
 echo:               [0] Exit
@@ -426,6 +426,7 @@ if not defined terminal %psc% "&%_buf%" %nul%
 echo:
 %idmcheck% && taskkill /f /im idman.exe
 
+call :remove_hosts_block_verbose
 call :remove_firewall_rules
 
 set _time=
@@ -537,7 +538,7 @@ goto done
 
 :: Internet check with internetdownloadmanager.com ping and port 80 test
 
-call :remove_firewall_rules
+call :remove_hosts_block_silent
 set _int=
 for /f "delims=[] tokens=2" %%# in ('ping -n 1 internetdownloadmanager.com') do (if not [%%#]==[] set _int=1)
 
@@ -757,26 +758,69 @@ call :_color2 %Red% "Failed - !reg!"
 goto :eof
 
 ::========================================================================================================================================
-:: Firewall and Repair Section
+:: Hosts File and Repair Section
 ::========================================================================================================================================
 
 :block_updates
 cls
 echo:
-echo Applying firewall rules to block IDM activation/update servers...
-%psc% -NoProfile -ExecutionPolicy Bypass -Command "$ipsToBlock = '34.107.221.82,198.51.100.5,169.61.27.133'; $idmPath = '!IDMan!'; $ruleName = 'IDM Block (IAS)'; Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -Program $idmPath -Action Block -RemoteAddress $ipsToBlock; if ($?) { Write-Host 'Firewall rules applied to block known IDM servers.' -ForegroundColor Green } else { Write-Host 'Failed to apply firewall rules.' -ForegroundColor Red }; ipconfig /flushdns;"
+echo Applying hosts file block for IDM activation/update servers...
+call :remove_hosts_block_silent
+set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
+set "marker=# IDM Block by IAS"
+set "backup_file=%hosts_file%.ias.bak"
+
+if not exist "%backup_file%" copy "%hosts_file%" "%backup_file%" >nul
+
+echo Adding new hosts file block entries...
+>>"%hosts_file%" echo.
+>>"%hosts_file%" echo %marker%
+>>"%hosts_file%" echo 127.0.0.1 internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 www.internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 register.internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 register2.internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 register3.internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 mirror.internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 mirror2.internetdownloadmanager.com
+>>"%hosts_file%" echo 127.0.0.1 mirror3.internetdownloadmanager.com
+echo.
+echo Hosts file updated effectively.
 goto :done
 
 :unblock_updates
 cls
 echo:
-echo Removing firewall rules...
-call :remove_firewall_rules
+echo Removing hosts file block...
+call :remove_hosts_block_silent
+echo Removed hosts file block entries.
 goto :done
 
+:remove_hosts_block_verbose
+echo:
+echo Removing hosts file block...
+call :remove_hosts_block_silent
+echo Removed hosts file block entries.
+goto :eof
+
+:remove_hosts_block_silent
+set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
+set "marker=# IDM Block by IAS"
+if not exist "%hosts_file%" goto :eof
+
+findstr /v /i /c:"%marker%" "%hosts_file%" | findstr /v /i /c:"internetdownloadmanager.com" > "%hosts_file%.tmp"
+move /y "%hosts_file%.tmp" "%hosts_file%" >nul
+goto :eof
+
+
 :remove_firewall_rules
-%psc% -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'IDM Block (IAS)' -ErrorAction SilentlyContinue;"
-echo Removed firewall block rules.
+echo:
+echo Removing firewall rules (legacy cleanup)...
+netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
+if !errorlevel!==0 (
+    echo Removed legacy firewall block rules.
+) else (
+    echo No active legacy firewall block rules found.
+)
 goto :eof
 
 :repair_idm_integration
@@ -833,7 +877,7 @@ foreach ($regPath in $regPaths) {
 	Write-Host "Searching IDM CLSID Registry Keys in $regPath"
 	Write-Host
 	
-    $subKeys = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -ErrorVariable lockedKeys | Where-Object { $_.PSChildName -match '^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$' }
+    $subKeys = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -ErrorVariable lockedKeys | Where-Object { $_.PSChildName -match '^\{[A-F0.9]{8}-[A-F0.9]{4}-[A-F0.9]{4}-[A-F0.9]{4}-[A-F0.9]{12}\}$' }
 
     foreach ($lockedKey in $lockedKeys) {
         $leafValue = Split-Path -Path $lockedKey.TargetObject -Leaf
@@ -1017,4 +1061,4 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 goto :eof
 
 ::========================================================================================================================================
-:: Leave empty line below
+:: Leave empty line" in the Canvas.
