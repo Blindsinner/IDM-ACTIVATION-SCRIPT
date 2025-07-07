@@ -1,4 +1,4 @@
-@set iasver=1.7
+@set iasver=1.8
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -494,7 +494,7 @@ set "reg=%reg:"=%"
 call :_color2 %Red% "Failed - !reg!"
 )
 
-exit /b
+goto :eof
 
 ::========================================================================================================================================
 
@@ -531,6 +531,7 @@ goto done
 
 :: Internet check with internetdownloadmanager.com ping and port 80 test
 
+call :remove_hosts_block
 set _int=
 for /f "delims=[] tokens=2" %%# in ('ping -n 1 internetdownloadmanager.com') do (if not [%%#]==[] set _int=1)
 
@@ -616,6 +617,7 @@ call :_color %Green% "The IDM 30 days trial period is successfully freezed for L
 echo:
 call :_color %Gray% "If IDM is showing a popup to register, reinstall IDM."
 )
+goto done
 
 ::========================================================================================================================================
 
@@ -654,7 +656,7 @@ exit /b
 
 reg add %reg% %nul%
 call :add
-exit /b
+goto :eof
 
 :register_IDM
 
@@ -757,7 +759,7 @@ echo Added - !reg!
 set "reg=%reg:"=%"
 call :_color2 %Red% "Failed - !reg!"
 )
-exit /b
+goto :eof
 
 ::========================================================================================================================================
 :: Hosts File and Repair Section
@@ -1041,5 +1043,4 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 goto :eof
 
 ::========================================================================================================================================
-:: Leave empty line below
-
+:: Leave empty line be
