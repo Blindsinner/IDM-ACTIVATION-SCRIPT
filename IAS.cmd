@@ -1,4 +1,4 @@
-@set iasver=1.8
+@set iasver=1.9
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -421,6 +421,7 @@ echo:
 %idmcheck% && taskkill /f /im idman.exe
 
 call :remove_hosts_block
+call :remove_firewall_rules
 
 set _time=
 for /f %%a in ('%psc% "(Get-Date).ToString('yyyyMMdd-HHmmssfff')"') do set _time=%%a
@@ -805,6 +806,17 @@ move /y "%hosts_file%.tmp" "%hosts_file%" >nul
 echo Removed hosts file block entries.
 goto :eof
 
+:remove_firewall_rules
+echo:
+echo Removing firewall rules (legacy cleanup)...
+netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
+if !errorlevel!==0 (
+    echo Removed legacy firewall block rules.
+) else (
+    echo No active legacy firewall block rules found.
+)
+goto :eof
+
 :repair_idm_integration
 echo:
 echo Attempting to repair IDM integration components...
@@ -1043,4 +1055,4 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 goto :eof
 
 ::========================================================================================================================================
-:: Leave empty line be
+:: Leave empty line
