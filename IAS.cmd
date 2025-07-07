@@ -1,4 +1,4 @@
-@set iasver=2.1
+@set iasver=1.2
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -25,12 +25,6 @@ set _freeze=0
 
 ::  To reset the activation and trial, run the script with "/res" parameter or change 0 to 1 in below line
 set _reset=0
-
-::  To block updates, run with "/block"
-set _block=0
-
-::  To unblock updates, run with "/unblock"
-set _unblock=0
 
 ::  If value is changed in above lines or parameter is used then script will run in unattended mode
 
@@ -113,16 +107,14 @@ set _args=%*
 if defined _args set _args=%_args:"=%
 if defined _args (
 for %%A in (%_args%) do (
-if /i "%%A"=="-el"   set _elev=1
-if /i "%%A"=="/res"  set _reset=1
-if /i "%%A"=="/frz"  set _freeze=1
-if /i "%%A"=="/act"  set _activate=1
-if /i "%%A"=="/block" set _block=1
-if /i "%%A"=="/unblock" set _unblock=1
+if /i "%%A"=="-el"  set _elev=1
+if /i "%%A"=="/res" set _reset=1
+if /i "%%A"=="/frz" set _freeze=1
+if /i "%%A"=="/act" set _activate=1
 )
 )
 
-for %%A in (%_activate% %_freeze% %_reset% %_block% %_unblock%) do (if "%%A"=="1" set _unattended=1)
+for %%A in (%_activate% %_freeze% %_reset%) do (if "%%A"=="1" set _unattended=1)
 
 ::========================================================================================================================================
 
@@ -369,14 +361,12 @@ goto done2
 if %_reset%==1 goto :_reset
 if %_activate%==1 (set frz=0&goto :_activate)
 if %_freeze%==1 (set frz=1&goto :_activate)
-if %_block%==1 goto :block_updates
-if %_unblock%==1 goto :unblock_updates
 
 :MainMenu
 
 cls
 title  IDM Activation Script %iasver%
-if not defined terminal mode 75, 30
+if not defined terminal mode 75, 28
 
 echo:
 echo:
@@ -390,22 +380,20 @@ echo:
 echo:               [1] Activate
 echo:               [2] Freeze Trial
 echo:               [3] Reset Activation / Trial
-echo:               [4] Block IDM Updates
-echo:               [5] Unblock IDM Updates
-echo:               [6] Download IDM
-echo:               [7] Help
+echo:               _____________________________________________   
+echo:                                                               
+echo:               [4] Download IDM
+echo:               [5] Help
 echo:               [0] Exit
 echo:            ___________________________________________________
 echo:         
-call :_color2 %_White% "             " %_Green% "Enter a menu option in the Keyboard [1-7,0]"
-choice /C:12345670 /N
+call :_color2 %_White% "             " %_Green% "Enter a menu option in the Keyboard [1,2,3,4,5,0]"
+choice /C:123450 /N
 set _erl=%errorlevel%
 
-if %_erl%==8 exit /b
-if %_erl%==7 start https://github.com/lstprjct/IDM-Activation-Script & goto MainMenu
-if %_erl%==6 start https://www.internetdownloadmanager.com/download.html & goto MainMenu
-if %_erl%==5 goto :unblock_updates
-if %_erl%==4 goto :block_updates
+if %_erl%==6 exit /b
+if %_erl%==5 start https://github.com/lstprjct/IDM-Activation-Script & goto MainMenu
+if %_erl%==4 start https://www.internetdownloadmanager.com/download.html & goto MainMenu
 if %_erl%==3 goto _reset
 if %_erl%==2 (set frz=1&goto :_activate)
 if %_erl%==1 (set frz=0&goto :_activate)
@@ -425,9 +413,6 @@ if not defined terminal %psc% "&%_buf%" %nul%
 
 echo:
 %idmcheck% && taskkill /f /im idman.exe
-
-call :remove_hosts_block_verbose
-call :remove_firewall_rules
 
 set _time=
 for /f %%a in ('%psc% "(Get-Date).ToString('yyyyMMdd-HHmmssfff')"') do set _time=%%a
@@ -487,7 +472,7 @@ if not %HKCUsync%==1 for %%# in (
 set "reg="%%~A"" &reg query !reg! %nul% && call :del
 )
 
-goto :eof
+exit /b
 
 :del
 
@@ -501,7 +486,7 @@ set "reg=%reg:"=%"
 call :_color2 %Red% "Failed - !reg!"
 )
 
-goto :eof
+exit /b
 
 ::========================================================================================================================================
 
@@ -538,7 +523,6 @@ goto done
 
 :: Internet check with internetdownloadmanager.com ping and port 80 test
 
-call :remove_hosts_block_silent
 set _int=
 for /f "delims=[] tokens=2" %%# in ('ping -n 1 internetdownloadmanager.com') do (if not [%%#]==[] set _int=1)
 
@@ -576,21 +560,7 @@ call :add_key
 
 if %frz%==0 call :register_IDM
 
-call :repair_idm_integration
 call :download_files
-
-if defined _download_failed (
-    %eline%
-    echo:
-    echo The script encountered an error while testing the IDM download engine.
-    echo This can be caused by a corrupted IDM installation or a system issue.
-    echo The error you saw (0x800706BE) suggests an RPC failure.
-    echo:
-    call :_color %_Yellow% "Recommendation: Please reinstall IDM and try again."
-    echo:
-    goto :done
-)
-
 if not defined _fileexist (
 %eline%
 echo Error: Unable to download files with IDM.
@@ -613,7 +583,6 @@ call :_color %Green% "The IDM 30 days trial period is successfully freezed for L
 echo:
 call :_color %Gray% "If IDM is showing a popup to register, reinstall IDM."
 )
-goto done
 
 ::========================================================================================================================================
 
@@ -652,7 +621,7 @@ exit /b
 
 reg add %reg% %nul%
 call :add
-goto :eof
+exit /b
 
 :register_IDM
 
@@ -677,62 +646,43 @@ set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v LName /t REG_SZ /d "%lname%"" & 
 set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v Email /t REG_SZ /d "%email%"" & call :_rcont
 set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v Serial /t REG_SZ /d "%key%"" & call :_rcont
 )
-goto :eof
+exit /b
 
 :download_files
+
 echo:
 echo Triggering a few downloads to create certain registry keys, please wait...
 echo:
 
 set "file=%SystemRoot%\Temp\temp.png"
 set _fileexist=
-set _download_failed=
 
 set link=https://www.internetdownloadmanager.com/images/idm_box_min.png
 call :download
-if defined _download_failed goto :eof
-
 set link=https://www.internetdownloadmanager.com/register/IDMlib/images/idman_logos.png
 call :download
-if defined _download_failed goto :eof
-
 set link=https://www.internetdownloadmanager.com/pictures/idm_about.png
 call :download
-if defined _download_failed goto :eof
 
 echo:
 timeout /t 3 %nul1%
 %idmcheck% && taskkill /f /im idman.exe
 if exist "%file%" del /f /q "%file%"
-goto :eof
+exit /b
 
 :download
+
 set /a attempt=0
 if exist "%file%" del /f /q "%file%"
 start "" /B "%IDMan%" /n /d "%link%" /p "%SystemRoot%\Temp" /f temp.png
-timeout /t 2 %nul1%
 
 :check_file
+
 timeout /t 1 %nul1%
 set /a attempt+=1
-
-%idmcheck% || (
-    call :_color %Red% "IDM process crashed during download test."
-    set _download_failed=1
-    exit /b
-)
-
-if exist "%file%" (
-    set _fileexist=1
-    exit /b
-)
-
-if %attempt% GEQ 20 (
-    call :_color %Red% "Download test timed out. IDM did not download the file."
-    set _download_failed=1
-    exit /b
-)
-goto :check_file
+if exist "%file%" set _fileexist=1&exit /b
+if %attempt% GEQ 20 exit /b
+goto :Check_file
 
 ::========================================================================================================================================
 
@@ -755,106 +705,7 @@ echo Added - !reg!
 set "reg=%reg:"=%"
 call :_color2 %Red% "Failed - !reg!"
 )
-goto :eof
-
-::========================================================================================================================================
-:: Hosts File and Repair Section
-::========================================================================================================================================
-
-:block_updates
-cls
-echo:
-echo Applying hosts file block for IDM activation/update servers...
-call :remove_hosts_block_silent
-set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
-set "marker=# IDM Block by IAS"
-set "backup_file=%hosts_file%.ias.bak"
-
-if not exist "%backup_file%" copy "%hosts_file%" "%backup_file%" >nul
-
-echo Adding new hosts file block entries...
->>"%hosts_file%" echo.
->>"%hosts_file%" echo %marker%
->>"%hosts_file%" echo 127.0.0.1 internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 www.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 register.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 register2.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 register3.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 mirror.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 mirror2.internetdownloadmanager.com
->>"%hosts_file%" echo 127.0.0.1 mirror3.internetdownloadmanager.com
-echo.
-echo Hosts file updated effectively.
-goto :done
-
-:unblock_updates
-cls
-echo:
-echo Removing hosts file block...
-call :remove_hosts_block_silent
-echo Removed hosts file block entries.
-goto :done
-
-:remove_hosts_block_verbose
-echo:
-echo Removing hosts file block...
-call :remove_hosts_block_silent
-echo Removed hosts file block entries.
-goto :eof
-
-:remove_hosts_block_silent
-set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
-set "marker=# IDM Block by IAS"
-if not exist "%hosts_file%" goto :eof
-
-findstr /v /i /c:"%marker%" "%hosts_file%" | findstr /v /i /c:"internetdownloadmanager.com" > "%hosts_file%.tmp"
-move /y "%hosts_file%.tmp" "%hosts_file%" >nul
-goto :eof
-
-
-:remove_firewall_rules
-echo:
-echo Removing firewall rules (legacy cleanup)...
-netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
-if !errorlevel!==0 (
-    echo Removed legacy firewall block rules.
-) else (
-    echo No active legacy firewall block rules found.
-)
-goto :eof
-
-:repair_idm_integration
-echo:
-echo Attempting to repair IDM integration components...
-set "idm_dir="
-for /f "delims=" %%a in ("%IDMan%") do set "idm_dir=%%~dpa"
-
-if not defined idm_dir (
-    call :_color %Red% "Could not determine IDM installation directory. Skipping repair."
-    goto :eof
-)
-
-set "dll32=%idm_dir%IDMIECC.dll"
-set "dll64=%idm_dir%IDMIECC64.dll"
-
-if exist "%dll64%" (
-    regsvr32 /s "%dll64%"
-    if !errorlevel!==0 (
-        echo Repaired - %dll64%
-    ) else (
-        call :_color2 %Red% "Failed to repair - %dll64%"
-    )
-)
-
-if exist "%dll32%" (
-    regsvr32 /s "%dll32%"
-    if !errorlevel!==0 (
-        echo Repaired - %dll32%
-    ) else (
-        call :_color2 %Red% "Failed to repair - %dll32%"
-    )
-)
-goto :eof
+exit /b
 
 ::========================================================================================================================================
 
@@ -877,7 +728,7 @@ foreach ($regPath in $regPaths) {
 	Write-Host "Searching IDM CLSID Registry Keys in $regPath"
 	Write-Host
 	
-    $subKeys = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -ErrorVariable lockedKeys | Where-Object { $_.PSChildName -match '^\{[A-F0.9]{8}-[A-F0.9]{4}-[A-F0.9]{4}-[A-F0.9]{4}-[A-F0.9]{12}\}$' }
+    $subKeys = Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -ErrorVariable lockedKeys | Where-Object { $_.PSChildName -match '^\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\}$' }
 
     foreach ($lockedKey in $lockedKeys) {
         $leafValue = Split-Path -Path $lockedKey.TargetObject -Leaf
@@ -1049,7 +900,7 @@ echo %esc%[%~1%~2%esc%[0m
 ) else (
 %psc% write-host -back '%1' -fore '%2' '%3'
 )
-goto :eof
+exit /b
 
 :_color2
 
@@ -1058,8 +909,7 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 ) else (
 %psc% write-host -back '%1' -fore '%2' '%3' -NoNewline; write-host -back '%4' -fore '%5' '%6'
 )
-goto :eof
+exit /b
 
 ::========================================================================================================================================
-:: Leave empty line" in the Canvas.
-I have made some changes, please fix 
+:: Leave empty line below
