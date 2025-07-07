@@ -252,7 +252,7 @@ set "launchcmd=%psc%"
 
 set "d1=$t=[AppDomain]::CurrentDomain.DefineDynamicAssembly(4, 1).DefineDynamicModule(2, $False).DefineType(0);"
 set "d2=$t.DefinePInvokeMethod('GetStdHandle', 'kernel32.dll', 22, 1, [IntPtr], @([Int32]), 1, 3).SetImplementationFlags(128);"
-set "d3=$t.DefinePInvokeMethod('SetConsoleMode', 'kernel32.dll', 22, 1, [Boolean], @([IntPtr], [Int32]), 1, 3).SetImplementationFlags(128);"
+set "d3=$.MaintainPInvokeMethod('SetConsoleMode', 'kernel32.dll', 22, 1, [Boolean], @([IntPtr], [Int32]), 1, 3).SetImplementationFlags(128);"
 set "d4=$k=$t.CreateType(); $b=$k::SetConsoleMode($k::GetStdHandle(-10), 0x0080);"
 
 if defined quedit goto :skipQE
@@ -452,7 +452,7 @@ for %%# in (
 ""HKCU\Software\DownloadManager" "/v" "LastCheckQU""
 "%HKLM%"
 ) do for /f "tokens=* delims=" %%A in ("%%~#") do (
-set "reg="%%~A"" &reg query !reg! %nul% && call :del
+set "reg="%%~A"" ® query !reg! %nul% && call :del
 )
 
 if not %HKCUsync%==1 for %%# in (
@@ -467,7 +467,7 @@ if not %HKCUsync%==1 for %%# in (
 ""HKU\%_sid%\Software\DownloadManager" "/v" "ptrk_scdt""
 ""HKU\%_sid%\Software\DownloadManager" "/v" "LastCheckQU""
 ) do for /f "tokens=* delims=" %%A in ("%%~#") do (
-set "reg="%%~A"" &reg query !reg! %nul% && call :del
+set "reg="%%~A"" ® query !reg! %nul% && call :del
 )
 
 exit /b
@@ -593,7 +593,7 @@ set "hosts=%SystemRoot%\System32\drivers\etc\hosts"
 set "comment= # IDM Activation Script"
 set "domains=internetdownloadmanager.com www.internetdownloadmanager.com secure.internetdownloadmanager.com register.internetdownloadmanager.com check.internetdownloadmanager.com update.internetdownloadmanager.com"
 for %%d in (%domains%) do (
-    findstr /i /c:"%%d%comment%" "%hosts%" >nul || (
+    type "%hosts%" | findstr /v "^#" | findstr /r "^127\.0\.0\.1.*%%d" >nul || (
         echo 127.0.0.1 %%d%comment%>>"%hosts%"
         echo Blocked %%d
     )
