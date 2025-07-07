@@ -8,10 +8,10 @@
 ::
 ::   IDM Activation Script (IAS)
 ::
-::   Homepages: https://github.com/WindowsAddict/IDM-Activation-Script
-::              https://massgrave.dev/idm-activation-script
+::   Homepages: https://github.com/lstprjct/IDM-Activation-Script
+::              https://t.me/ModByPiash/5
 ::
-::       Email: windowsaddict@protonmail.com
+::       Telegram: @Stripe_op
 ::
 ::============================================================================
 
@@ -63,7 +63,7 @@ exit /b
 ::========================================================================================================================================
 
 set "blank="
-set "mas=ht%blank%tps%blank%://mass%blank%grave.dev/"
+set "mas=https://github.com/lstprjct/IDM-Activation-Script/wiki/"
 
 ::  Check if Null service is working, it's important for the batch script
 
@@ -73,7 +73,7 @@ echo:
 echo Null service is not running, script may crash...
 echo:
 echo:
-echo Help - %mas%idm-activation-script.html#Troubleshoot
+echo Help - %mas%IAS-Help#troubleshoot
 echo:
 echo:
 ping 127.0.0.1 -n 10
@@ -214,7 +214,7 @@ echo:
 echo PowerShell is not working. Aborting...
 echo If you have applied restrictions on Powershell then undo those changes.
 echo:
-echo Check this page for help. %mas%idm-activation-script.html#Troubleshoot
+echo Check this page for help. %mas%IAS-Help#troubleshoot
 goto done2
 )
 
@@ -265,34 +265,6 @@ if defined quedit goto :skipQE
 
 ::========================================================================================================================================
 
-::  Check for updates
-
-set -=
-set old=
-
-for /f "delims=[] tokens=2" %%# in ('ping -4 -n 1 iasupdatecheck.mass%-%grave.dev') do (
-if not [%%#]==[] (echo "%%#" | find "127.69" %nul1% && (echo "%%#" | find "127.69.%iasver%" %nul1% || set old=1))
-)
-
-if defined old (
-echo ________________________________________________
-%eline%
-echo You are running outdated version IAS %iasver%
-echo ________________________________________________
-echo:
-if not %_unattended%==1 (
-echo [1] Get Latest IAS
-echo [0] Continue Anyway
-echo:
-call :_color %_Green% "Enter a menu option in the Keyboard [1,0] :"
-choice /C:10 /N
-if !errorlevel!==2 rem
-if !errorlevel!==1 (start https://github.com/WindowsAddict/IDM-Activation-Script & start %mas%/idm-activation-script & exit /b)
-)
-)
-
-::========================================================================================================================================
-
 cls
 title  IDM Activation Script %iasver%
 
@@ -307,7 +279,7 @@ echo Initializing...
 echo:
 echo WMI is not working. Aborting...
 echo:
-echo Check this page for help. %mas%idm-activation-script.html#Troubleshoot
+echo Check this page for help. %mas%IAS-Help#troubleshoot
 goto done2
 )
 
@@ -326,7 +298,7 @@ echo:
 echo [%_sid%]
 echo User Account SID not found. Aborting...
 echo:
-echo Check this page for help. %mas%idm-activation-script.html#Troubleshoot
+echo Check this page for help. %mas%IAS-Help#troubleshoot
 goto done2
 )
 
@@ -378,7 +350,7 @@ set "idmcheck=tasklist /fi "imagename eq idman.exe" | findstr /i "idman.exe" %nu
 %eline%
 echo Failed to write in %CLSID2%
 echo:
-echo Check this page for help. %mas%idm-activation-script.html#Troubleshoot
+echo Check this page for help. %mas%IAS-Help#troubleshoot
 goto done2
 )
 
@@ -398,14 +370,15 @@ if not defined terminal mode 75, 28
 
 echo:
 echo:
+call :_color2 %_White% "             " %_Green% "Create By Piash"
+echo:            ___________________________________________________ 
 echo:
-echo:
-echo:
-echo:                This script is NOT working with latest IDM.     
+echo:               Telegram: @ModByPiash
+echo:               Github: https://github.com/lstprjct
 echo:            ___________________________________________________ 
 echo:                                                               
-echo:               [1] Freeze Trial
-echo:               [2] Activate
+echo:               [1] Activate
+echo:               [2] Freeze Trial
 echo:               [3] Reset Activation / Trial
 echo:               _____________________________________________   
 echo:                                                               
@@ -419,11 +392,11 @@ choice /C:123450 /N
 set _erl=%errorlevel%
 
 if %_erl%==6 exit /b
-if %_erl%==5 start https://github.com/WindowsAddict/IDM-Activation-Script & start https://massgrave.dev/idm-activation-script & goto MainMenu
+if %_erl%==5 start https://github.com/lstprjct/IDM-Activation-Script & goto MainMenu
 if %_erl%==4 start https://www.internetdownloadmanager.com/download.html & goto MainMenu
 if %_erl%==3 goto _reset
-if %_erl%==2 (set frz=0&goto :_activate)
-if %_erl%==1 (set frz=1&goto :_activate)
+if %_erl%==2 (set frz=1&goto :_activate)
+if %_erl%==1 (set frz=0&goto :_activate)
 goto :MainMenu
 
 ::========================================================================================================================================
@@ -592,7 +565,7 @@ if not defined _fileexist (
 %eline%
 echo Error: Unable to download files with IDM.
 echo:
-echo Help: %mas%idm-activation-script.html#Troubleshoot
+echo Help: %mas%IAS-Help#troubleshoot
 goto :done
 )
 
