@@ -1,4 +1,4 @@
-@set iasver=3.3
+@set iasver=3.7
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -85,19 +85,6 @@ echo:
 ping 127.0.0.1 -n 10
 )
 cls
-
-::  Check LF line ending
-
-pushd "%~dp0"
->nul findstr /v "$" "%~nx0" && (
-echo:
-echo Error: Script either has LF line ending issue or an empty line at the end of the script is missing.
-echo:
-ping 127.0.0.1 -n 6 >nul
-popd
-exit /b
-)
-popd
 
 ::========================================================================================================================================
 
@@ -764,7 +751,14 @@ goto :eof
 cls
 echo:
 echo Applying firewall rules to block IDM activation/update servers...
-%psc% -NoProfile -ExecutionPolicy Bypass -Command "$ipsToBlock = '34.107.221.82,198.51.100.5,169.61.27.133'; $idmPath = '!IDMan!'; $ruleName = 'IDM Block (IAS)'; Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -Program $idmPath -Action Block -RemoteAddress $ipsToBlock; if ($?) { Write-Host 'Firewall rules applied to block known IDM servers.' -ForegroundColor Green } else { Write-Host 'Failed to apply firewall rules.' -ForegroundColor Red }; ipconfig /flushdns;"
+netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
+netsh advfirewall firewall add rule name="IDM Block (IAS)" dir=out action=block program="!IDMan!" remoteip="34.107.221.82,198.51.100.5,169.61.27.133" >nul 2>&1
+if !errorlevel!==0 (
+    call :_color %Green% "Firewall rules applied to block known IDM servers."
+) else (
+    call :_color %Red% "Failed to apply firewall rules."
+)
+ipconfig /flushdns >nul 2>&1
 goto :done
 
 :unblock_updates
@@ -775,8 +769,12 @@ call :remove_firewall_rules
 goto :done
 
 :remove_firewall_rules
-%psc% -NoProfile -ExecutionPolicy Bypass -Command "Remove-NetFirewallRule -DisplayName 'IDM Block (IAS)' -ErrorAction SilentlyContinue;"
-echo Removed firewall block rules.
+netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
+if !errorlevel!==0 (
+    echo Removed firewall block rules.
+) else (
+    echo No active firewall block rules found.
+)
 goto :eof
 
 :repair_idm_integration
@@ -1017,4 +1015,4 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 goto :eof
 
 ::========================================================================================================================================
-:: Leave empty line below
+:: Leave empty line
