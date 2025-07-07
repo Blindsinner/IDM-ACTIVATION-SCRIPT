@@ -1,4 +1,4 @@
-@set iasver=1.3
+@set iasver=1.6
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -26,7 +26,7 @@ set _freeze=0
 ::  To reset the activation and trial, run the script with "/res" parameter or change 0 to 1 in below line
 set _reset=0
 
-::  To automatically block IDM with firewall on activation, run with "/block" or change 0 to 1
+::  To automatically block IDM with hosts file on activation, run with "/block" or change 0 to 1
 set _block=0
 
 ::  If value is changed in above lines or parameter is used then script will run in unattended mode
@@ -386,7 +386,7 @@ echo:               [2] Freeze Trial
 echo:               [3] Reset Activation / Trial
 echo:               _____________________________________________   
 echo:
-call :_color %Gray% "    Activation and Freeze options include Firewall blocking."
+call :_color %Gray% "    Activation and Freeze options include Hosts file blocking."
 echo:
 echo:               [4] Download IDM
 echo:               [5] Help
@@ -420,7 +420,7 @@ if not defined terminal %psc% "&%_buf%" %nul%
 echo:
 %idmcheck% && taskkill /f /im idman.exe
 
-call :remove_firewall_rules
+call :remove_hosts_block
 
 set _time=
 for /f %%a in ('%psc% "(Get-Date).ToString('yyyyMMdd-HHmmssfff')"') do set _time=%%a
@@ -568,7 +568,21 @@ call :add_key
 
 if %frz%==0 call :register_IDM
 
+call :repair_idm_integration
 call :download_files
+
+if defined _download_failed (
+    %eline%
+    echo:
+    echo The script encountered an error while testing the IDM download engine.
+    echo This can be caused by a corrupted IDM installation or a system issue.
+    echo The error you saw (0x800706BE) suggests an RPC failure.
+    echo:
+    call :_color %_Yellow% "Recommendation: Please reinstall IDM and try again."
+    echo:
+    goto :done
+)
+
 if not defined _fileexist (
 %eline%
 echo Error: Unable to download files with IDM.
@@ -584,11 +598,11 @@ if %_unattended%==1 (
     if %_block%==1 set _block_choice=Y
 ) else (
     echo:
-    choice /C:YN /N /M "> Block IDM with Firewall? (Recommended) [Y/N]: "
+    choice /C:YN /N /M "> Block IDM with Hosts file? (Recommended) [Y/N]: "
     if !errorlevel!==1 set _block_choice=Y
 )
 
-if "%_block_choice%"=="Y" call :apply_firewall_rules
+if "%_block_choice%"=="Y" call :apply_hosts_block
 
 echo:
 echo %line%
@@ -668,20 +682,25 @@ set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v Serial /t REG_SZ /d "%key%"" & c
 exit /b
 
 :download_files
-
 echo:
 echo Triggering a few downloads to create certain registry keys, please wait...
 echo:
 
 set "file=%SystemRoot%\Temp\temp.png"
 set _fileexist=
+set _download_failed=
 
 set link=https://www.internetdownloadmanager.com/images/idm_box_min.png
 call :download
+if defined _download_failed exit /b
+
 set link=https://www.internetdownloadmanager.com/register/IDMlib/images/idman_logos.png
 call :download
+if defined _download_failed exit /b
+
 set link=https://www.internetdownloadmanager.com/pictures/idm_about.png
 call :download
+if defined _download_failed exit /b
 
 echo:
 timeout /t 3 %nul1%
@@ -690,18 +709,32 @@ if exist "%file%" del /f /q "%file%"
 exit /b
 
 :download
-
 set /a attempt=0
 if exist "%file%" del /f /q "%file%"
 start "" /B "%IDMan%" /n /d "%link%" /p "%SystemRoot%\Temp" /f temp.png
+timeout /t 2 %nul1%
 
 :check_file
-
 timeout /t 1 %nul1%
 set /a attempt+=1
-if exist "%file%" set _fileexist=1&exit /b
-if %attempt% GEQ 20 exit /b
-goto :Check_file
+
+%idmcheck% || (
+    call :_color %Red% "IDM process crashed during download test."
+    set _download_failed=1
+    exit /b
+)
+
+if exist "%file%" (
+    set _fileexist=1
+    exit /b
+)
+
+if %attempt% GEQ 20 (
+    call :_color %Red% "Download test timed out. IDM did not download the file."
+    set _download_failed=1
+    exit /b
+)
+goto :check_file
 
 ::========================================================================================================================================
 
@@ -727,29 +760,79 @@ call :_color2 %Red% "Failed - !reg!"
 exit /b
 
 ::========================================================================================================================================
-:: Firewall Section
+:: Hosts File and Repair Section
 ::========================================================================================================================================
 
-:apply_firewall_rules
+:apply_hosts_block
 echo:
-echo Applying firewall rules to block IDM...
-netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
-netsh advfirewall firewall add rule name="IDM Block (IAS)" dir=out action=block program="!IDMan!" >nul 2>&1
-if !errorlevel!==0 (
-    echo Blocked Outbound - !IDMan!
-) else (
-    call :_color2 %Red% "Failed to block - !IDMan!"
+echo Applying hosts file block for IDM activation/update servers...
+set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
+set "backup_file=%hosts_file%.ias.bak"
+
+if not exist "%backup_file%" copy "%hosts_file%" "%backup_file%" >nul
+
+(
+    echo 127.0.0.1 internetdownloadmanager.com
+    echo 127.0.0.1 www.internetdownloadmanager.com
+    echo 127.0.0.1 register.internetdownloadmanager.com
+    echo 127.0.0.1 register2.internetdownloadmanager.com
+    echo 127.0.0.1 register3.internetdownloadmanager.com
+    echo 127.0.0.1 mirror.internetdownloadmanager.com
+    echo 127.0.0.1 mirror2.internetdownloadmanager.com
+    echo 127.0.0.1 mirror3.internetdownloadmanager.com
+) | findstr /v /c:"#" > "%TEMP%\ias_hosts_entries.tmp"
+
+for /f "tokens=2" %%d in (%TEMP%\ias_hosts_entries.tmp) do (
+    findstr /i /c:"%%d" "%hosts_file%" >nul || (
+        echo Adding block for %%d...
+        echo 127.0.0.1 %%d>>"%hosts_file%"
+    )
 )
+del "%TEMP%\ias_hosts_entries.tmp" >nul 2>&1
+echo Hosts file updated.
 exit /b
 
-:remove_firewall_rules
+:remove_hosts_block
 echo:
-echo Removing firewall rules...
-netsh advfirewall firewall delete rule name="IDM Block (IAS)" >nul 2>&1
-if !errorlevel!==0 (
-    echo Removed firewall block rules.
-) else (
-    echo No active firewall block rules found.
+echo Removing hosts file block...
+set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
+if not exist "%hosts_file%" exit /b
+
+findstr /v /i /c:"internetdownloadmanager.com" "%hosts_file%" > "%hosts_file%.tmp"
+move /y "%hosts_file%.tmp" "%hosts_file%" >nul
+echo Removed hosts file block entries.
+exit /b
+
+:repair_idm_integration
+echo:
+echo Attempting to repair IDM integration components...
+set "idm_dir="
+for /f "delims=" %%a in ("%IDMan%") do set "idm_dir=%%~dpa"
+
+if not defined idm_dir (
+    call :_color %Red% "Could not determine IDM installation directory. Skipping repair."
+    exit /b
+)
+
+set "dll32=%idm_dir%IDMIECC.dll"
+set "dll64=%idm_dir%IDMIECC64.dll"
+
+if exist "%dll64%" (
+    regsvr32 /s "%dll64%"
+    if !errorlevel!==0 (
+        echo Repaired - %dll64%
+    ) else (
+        call :_color2 %Red% "Failed to repair - %dll64%"
+    )
+)
+
+if exist "%dll32%" (
+    regsvr32 /s "%dll32%"
+    if !errorlevel!==0 (
+        echo Repaired - %dll32%
+    ) else (
+        call :_color2 %Red% "Failed to repair - %dll32%"
+    )
 )
 exit /b
 
