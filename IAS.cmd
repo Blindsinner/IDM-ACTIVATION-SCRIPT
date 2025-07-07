@@ -1,4 +1,4 @@
-@set iasver=2.3
+@set iasver=2.4
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -765,42 +765,20 @@ cls
 echo:
 echo Applying firewall rules to block IDM activation/update servers...
 %psc% -NoProfile -ExecutionPolicy Bypass -Command "& {
-    $domainsToBlock = @(
-        'internetdownloadmanager.com',
-        'www.internetdownloadmanager.com',
-        'register.internetdownloadmanager.com',
-        'register2.internetdownloadmanager.com',
-        'register3.internetdownloadmanager.com',
-        'mirror.internetdownloadmanager.com',
-        'mirror2.internetdownloadmanager.com',
-        'mirror3.internetdownloadmanager.com'
+    $ipsToBlock = @(
+        '34.107.221.82',
+        '198.51.100.5'
     )
-    $ipList = [System.Collections.Generic.List[string]]::new()
-    foreach ($domain in $domainsToBlock) {
-        try {
-            $ips = [System.Net.Dns]::GetHostAddresses($domain) | ForEach-Object { $_.IPAddressToString }
-            if ($ips) {
-                $ipList.AddRange($ips)
-            }
-        } catch {
-            Write-Warning ""Failed to resolve domain: $domain""
-        }
-    }
-    $uniqueIps = $ipList | Select-Object -Unique
-    if ($uniqueIps.Count -gt 0) {
-        $remoteIps = $uniqueIps -join ','
-        $idmPath = '!IDMan!'
-        $ruleName = 'IDM Block (IAS)'
-        netsh advfirewall firewall delete rule name=""$ruleName"" > $null
-        $command = ""advfirewall firewall add rule name=`""$ruleName`" dir=out action=block enable=yes program=`""$idmPath`"" remoteip=$remoteIps""
-        netsh @($command.Split(' '))
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host ""Firewall rules applied to block $($uniqueIps.Count) IP addresses."" -ForegroundColor Green
-        } else {
-            Write-Host ""Failed to apply firewall rules."" -ForegroundColor Red
-        }
+    $remoteIps = $ipsToBlock -join ','
+    $idmPath = '!IDMan!'
+    $ruleName = 'IDM Block (IAS)'
+    netsh advfirewall firewall delete rule name=""$ruleName"" > $null
+    $command = ""advfirewall firewall add rule name=`""$ruleName`" dir=out action=block enable=yes program=`""$idmPath`"" remoteip=$remoteIps""
+    netsh @($command.Split(' '))
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""Firewall rules applied to block known IDM servers."" -ForegroundColor Green
     } else {
-        Write-Host ""Could not resolve any IDM domains to apply firewall rules."" -ForegroundColor Yellow
+        Write-Host ""Failed to apply firewall rules."" -ForegroundColor Red
     }
     ipconfig /flushdns
 }"
@@ -1060,5 +1038,5 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 goto :eof
 
 ::========================================================================================================================================
-:: Leave empty line" in the Canvas.
-I have made some changes, pleas
+:: Leave empty line below
+
