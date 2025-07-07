@@ -40,7 +40,7 @@ Download: https://github.com/lstprjct/IDM-Activation-Script/releases/tag/v1.4-Fi
 1. Open **PowerShell** or **Windows Terminal** as Administrator.
 2. Paste and run:
    ```powershell
-   iex (irm is.gd/IDM_FIX)
+   iex (irm is.gd/IDMFIX)
    ```
 3. Choose **Activate**, **Freeze Trial**, or **Reset** from the menu.
 
