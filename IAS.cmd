@@ -1,4 +1,4 @@
-@set iasver=1.6
+@set iasver=1.7
 @setlocal DisableDelayedExpansion
 @echo off
 
@@ -480,7 +480,7 @@ if not %HKCUsync%==1 for %%# in (
 set "reg="%%~A"" &reg query !reg! %nul% && call :del
 )
 
-exit /b
+goto :eof
 
 :del
 
@@ -679,7 +679,7 @@ set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v LName /t REG_SZ /d "%lname%"" & 
 set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v Email /t REG_SZ /d "%email%"" & call :_rcont
 set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v Serial /t REG_SZ /d "%key%"" & call :_rcont
 )
-exit /b
+goto :eof
 
 :download_files
 echo:
@@ -692,21 +692,21 @@ set _download_failed=
 
 set link=https://www.internetdownloadmanager.com/images/idm_box_min.png
 call :download
-if defined _download_failed exit /b
+if defined _download_failed goto :eof
 
 set link=https://www.internetdownloadmanager.com/register/IDMlib/images/idman_logos.png
 call :download
-if defined _download_failed exit /b
+if defined _download_failed goto :eof
 
 set link=https://www.internetdownloadmanager.com/pictures/idm_about.png
 call :download
-if defined _download_failed exit /b
+if defined _download_failed goto :eof
 
 echo:
 timeout /t 3 %nul1%
 %idmcheck% && taskkill /f /im idman.exe
 if exist "%file%" del /f /q "%file%"
-exit /b
+goto :eof
 
 :download
 set /a attempt=0
@@ -790,18 +790,18 @@ for /f "tokens=2" %%d in (%TEMP%\ias_hosts_entries.tmp) do (
 )
 del "%TEMP%\ias_hosts_entries.tmp" >nul 2>&1
 echo Hosts file updated.
-exit /b
+goto :eof
 
 :remove_hosts_block
 echo:
 echo Removing hosts file block...
 set "hosts_file=%SystemRoot%\System32\drivers\etc\hosts"
-if not exist "%hosts_file%" exit /b
+if not exist "%hosts_file%" goto :eof
 
 findstr /v /i /c:"internetdownloadmanager.com" "%hosts_file%" > "%hosts_file%.tmp"
 move /y "%hosts_file%.tmp" "%hosts_file%" >nul
 echo Removed hosts file block entries.
-exit /b
+goto :eof
 
 :repair_idm_integration
 echo:
@@ -811,7 +811,7 @@ for /f "delims=" %%a in ("%IDMan%") do set "idm_dir=%%~dpa"
 
 if not defined idm_dir (
     call :_color %Red% "Could not determine IDM installation directory. Skipping repair."
-    exit /b
+    goto :eof
 )
 
 set "dll32=%idm_dir%IDMIECC.dll"
@@ -834,7 +834,7 @@ if exist "%dll32%" (
         call :_color2 %Red% "Failed to repair - %dll32%"
     )
 )
-exit /b
+goto :eof
 
 ::========================================================================================================================================
 
@@ -1029,7 +1029,7 @@ echo %esc%[%~1%~2%esc%[0m
 ) else (
 %psc% write-host -back '%1' -fore '%2' '%3'
 )
-exit /b
+goto :eof
 
 :_color2
 
@@ -1038,7 +1038,7 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 ) else (
 %psc% write-host -back '%1' -fore '%2' '%3' -NoNewline; write-host -back '%4' -fore '%5' '%6'
 )
-exit /b
+goto :eof
 
 ::========================================================================================================================================
 :: Leave empty line below
