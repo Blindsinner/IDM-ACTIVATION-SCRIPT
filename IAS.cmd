@@ -2,20 +2,16 @@
 @setlocal DisableDelayedExpansion
 @echo off
 
-
-
 ::============================================================================
 ::
 ::   IDM Activation Script (IAS)
 ::
-::   Homepages: https://github.com/lstprjct/IDM-Activation-Script
-::              https://t.me/ModByPiash/5
+::   Homepages: https://github.com/blindsinner/IDM-Activation-Script
+::              https://t.me/theblindsinner1
 ::
-::       Telegram: @Stripe_op
+::       Telegram: @theblindsinner1
 ::
 ::============================================================================
-
-
 
 ::  To activate, run the script with "/act" parameter or change 0 to 1 in below line
 set _activate=0
@@ -26,10 +22,10 @@ set _freeze=0
 ::  To reset the activation and trial, run the script with "/res" parameter or change 0 to 1 in below line
 set _reset=0
 
-::  To block updates, run with "/block"
+::  To block updates, run with "/block" parameter or change 0 to 1 in below line
 set _block=0
 
-::  To unblock updates, run with "/unblock"
+::  To unblock updates, run with "/unblock" parameter or change 0 to 1 in below line
 set _unblock=0
 
 ::  If value is changed in above lines or parameter is used then script will run in unattended mode
@@ -86,6 +82,19 @@ ping 127.0.0.1 -n 10
 )
 cls
 
+::  Check LF line ending
+
+pushd "%~dp0"
+>nul findstr /v "$" "%~nx0" && (
+echo:
+echo Error: Script either has LF line ending issue or an empty line at the end of the script is missing.
+echo:
+ping 127.0.0.1 -n 6 >nul
+popd
+exit /b
+)
+popd
+
 ::========================================================================================================================================
 
 cls
@@ -100,10 +109,10 @@ set _args=%*
 if defined _args set _args=%_args:"=%
 if defined _args (
 for %%A in (%_args%) do (
-if /i "%%A"=="-el"   set _elev=1
-if /i "%%A"=="/res"  set _reset=1
-if /i "%%A"=="/frz"  set _freeze=1
-if /i "%%A"=="/act"  set _activate=1
+if /i "%%A"=="-el"  set _elev=1
+if /i "%%A"=="/res" set _reset=1
+if /i "%%A"=="/frz" set _freeze=1
+if /i "%%A"=="/act" set _activate=1
 if /i "%%A"=="/block" set _block=1
 if /i "%%A"=="/unblock" set _unblock=1
 )
@@ -367,11 +376,11 @@ if not defined terminal mode 75, 30
 
 echo:
 echo:
-call :_color2 %_White% "             " %_Green% "Create By Piash"
+call :_color2 %_White% "             " %_Green% "Create By The Blindsinner"
 echo:            ___________________________________________________ 
 echo:
-echo:               Telegram: @ModByPiash
-echo:               Github: https://github.com/lstprjct
+echo:               Telegram: @Theblindsinner1
+echo:               Github: https://github.com/blindsinner
 echo:            ___________________________________________________ 
 echo:                                                               
 echo:               [1] Activate
@@ -412,7 +421,6 @@ if not defined terminal %psc% "&%_buf%" %nul%
 
 echo:
 %idmcheck% && taskkill /f /im idman.exe
-
 call :remove_firewall_rules
 
 set _time=
@@ -562,21 +570,7 @@ call :add_key
 
 if %frz%==0 call :register_IDM
 
-call :repair_idm_integration
 call :download_files
-
-if defined _download_failed (
-    %eline%
-    echo:
-    echo The script encountered an error while testing the IDM download engine.
-    echo This can be caused by a corrupted IDM installation or a system issue.
-    echo The error you saw (0x800706BE) suggests an RPC failure.
-    echo:
-    call :_color %_Yellow% "Recommendation: Please reinstall IDM and try again."
-    echo:
-    goto :done
-)
-
 if not defined _fileexist (
 %eline%
 echo Error: Unable to download files with IDM.
@@ -599,7 +593,6 @@ call :_color %Green% "The IDM 30 days trial period is successfully freezed for L
 echo:
 call :_color %Gray% "If IDM is showing a popup to register, reinstall IDM."
 )
-goto done
 
 ::========================================================================================================================================
 
@@ -666,25 +659,20 @@ set "reg=HKU\%_sid%\SOFTWARE\DownloadManager /v Serial /t REG_SZ /d "%key%"" & c
 goto :eof
 
 :download_files
+
 echo:
 echo Triggering a few downloads to create certain registry keys, please wait...
 echo:
 
 set "file=%SystemRoot%\Temp\temp.png"
 set _fileexist=
-set _download_failed=
 
 set link=https://www.internetdownloadmanager.com/images/idm_box_min.png
 call :download
-if defined _download_failed goto :eof
-
 set link=https://www.internetdownloadmanager.com/register/IDMlib/images/idman_logos.png
 call :download
-if defined _download_failed goto :eof
-
 set link=https://www.internetdownloadmanager.com/pictures/idm_about.png
 call :download
-if defined _download_failed goto :eof
 
 echo:
 timeout /t 3 %nul1%
@@ -693,32 +681,18 @@ if exist "%file%" del /f /q "%file%"
 goto :eof
 
 :download
+
 set /a attempt=0
 if exist "%file%" del /f /q "%file%"
 start "" /B "%IDMan%" /n /d "%link%" /p "%SystemRoot%\Temp" /f temp.png
-timeout /t 2 %nul1%
 
 :check_file
+
 timeout /t 1 %nul1%
 set /a attempt+=1
-
-%idmcheck% || (
-    call :_color %Red% "IDM process crashed during download test."
-    set _download_failed=1
-    exit /b
-)
-
-if exist "%file%" (
-    set _fileexist=1
-    exit /b
-)
-
-if %attempt% GEQ 20 (
-    call :_color %Red% "Download test timed out. IDM did not download the file."
-    set _download_failed=1
-    exit /b
-)
-goto :check_file
+if exist "%file%" set _fileexist=1&goto :eof
+if %attempt% GEQ 20 goto :eof
+goto :Check_file
 
 ::========================================================================================================================================
 
@@ -744,7 +718,7 @@ call :_color2 %Red% "Failed - !reg!"
 goto :eof
 
 ::========================================================================================================================================
-:: Firewall and Repair Section
+:: Firewall Section
 ::========================================================================================================================================
 
 :block_updates
@@ -774,39 +748,6 @@ if !errorlevel!==0 (
     echo Removed firewall block rules.
 ) else (
     echo No active firewall block rules found.
-)
-goto :eof
-
-:repair_idm_integration
-echo:
-echo Attempting to repair IDM integration components...
-set "idm_dir="
-for /f "delims=" %%a in ("%IDMan%") do set "idm_dir=%%~dpa"
-
-if not defined idm_dir (
-    call :_color %Red% "Could not determine IDM installation directory. Skipping repair."
-    goto :eof
-)
-
-set "dll32=%idm_dir%IDMIECC.dll"
-set "dll64=%idm_dir%IDMIECC64.dll"
-
-if exist "%dll64%" (
-    regsvr32 /s "%dll64%"
-    if !errorlevel!==0 (
-        echo Repaired - %dll64%
-    ) else (
-        call :_color2 %Red% "Failed to repair - %dll64%"
-    )
-)
-
-if exist "%dll32%" (
-    regsvr32 /s "%dll32%"
-    if !errorlevel!==0 (
-        echo Repaired - %dll32%
-    ) else (
-        call :_color2 %Red% "Failed to repair - %dll32%"
-    )
 )
 goto :eof
 
@@ -1015,4 +956,4 @@ echo %esc%[%~1%~2%esc%[%~3%~4%esc%[0m
 goto :eof
 
 ::========================================================================================================================================
-:: Leave empty line
+:: Leave empty line below this
