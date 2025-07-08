@@ -4,7 +4,7 @@
 
 ---
 
-## 🚨 Disclaime
+## 🚨 Disclaimer
 
 This script is provided for educational purposes. All credit for the original research and code goes to the original authors and contributors. This project is a continuation and enhancement of their work.
 
