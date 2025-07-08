@@ -1,4 +1,4 @@
-# Check the instructions here on how to use it https://github.com/lstprjct/IDM-Activation-Script/wiki
+# Check the instructions here on how to use it https://github.com/Blindsinner/IDM-ACTIVATION-SCRIPT/wiki
 
 $ErrorActionPreference = "Stop"
 # Enable TLSv1.2 for compatibility with older clients
