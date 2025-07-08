@@ -398,7 +398,7 @@ choice /C:12345670 /N
 set _erl=%errorlevel%
 
 if %_erl%==8 exit /b
-if %_erl%==7 start https://github.com/lstprjct/IDM-Activation-Script & goto MainMenu
+if %_erl%==7 start https://github.com/Blindsinner/IDM-ACTIVATION-SCRIPT/wiki & goto MainMenu
 if %_erl%==6 start https://www.internetdownloadmanager.com/download.html & goto MainMenu
 if %_erl%==5 goto :unblock_updates
 if %_erl%==4 goto :block_updates
